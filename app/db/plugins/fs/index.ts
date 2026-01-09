@@ -1327,7 +1327,7 @@ export async function getCommitSnapshot(
 /**
  * Internal: Gets the resolved file tree at a commit with content.
  */
-async function getCommitSnapshotWithContent(
+export async function getCommitSnapshotWithContent(
   commitId: string,
   pathPrefix?: string
 ): Promise<SnapshotEntryWithContent[]> {
@@ -1335,6 +1335,7 @@ async function getCommitSnapshotWithContent(
   const results: SnapshotEntryWithContent[] = [];
 
   for (const entry of snapshot) {
+    // @TODO don't do this.
     const content = await readFile(commitId, entry.path);
     results.push({
       ...entry,
