@@ -1,13 +1,24 @@
-import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
+import { useLoaderData } from "react-router";
+import { getSql } from "~/db/sql.server";
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
-  ];
+export async function loader() {
+  const sql = getSql();
+
+  return {
+    result: await sql`select 1 as id_thing`.all<{ id_thing: number }>(),
+  };
 }
 
 export default function Home() {
-  return <Welcome />;
+  console.log(useLoaderData());
+  return (
+    <div className="flex h-screen">
+      <div className="w-[380px] shrink-0 border-r border-gray-200">
+        <h1>Left Column</h1>
+      </div>
+      <div className="flex-1">
+        <h1>Right Column</h1>
+      </div>
+    </div>
+  );
 }
