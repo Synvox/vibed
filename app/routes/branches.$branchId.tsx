@@ -36,8 +36,9 @@ export async function loader(ctx: LoaderFunctionArgs) {
 }
 
 export const action = createActions({
-  default: validatedAction(
+  commit: validatedAction(
     z.object({
+      message: z.string(),
       files: z.record(
         z.string(),
         z.object({
@@ -57,7 +58,7 @@ export const action = createActions({
       await sql.tx(async () => {
         const commit = await createCommit(
           branch.repositoryId,
-          "Commit",
+          data.message,
           branch.headCommitId
         );
 
@@ -102,7 +103,7 @@ export default function Component() {
 function Inner({ bash }: { bash: Bash }) {
   const { branch, files } = useLoaderData<typeof loader>();
   const useAction = useActions();
-  const commit = useAction("default");
+  const commit = useAction("commit");
 
   const tools = [
     toolDefs.readFile.client(async (input: any) => {
@@ -119,6 +120,58 @@ function Inner({ bash }: { bash: Bash }) {
       const { stdout, stderr, exitCode } = await bash.exec(command);
       return { stdout, stderr, exitCode };
     }),
+    toolDefs.refresh.client(async (input: any) => {
+      const { message } = input as { message: string };
+      const fsFiles = Object.fromEntries(
+        Array.from(bash.fs.data.entries())
+          .filter(([key, value]) => key.startsWith("/repository/"))
+          .map(([key, value]) => [
+            key.replace("/repository", ""),
+            new TextDecoder().decode(value.content),
+          ])
+      );
+
+      const updatedFiles: Record<
+        string,
+        {
+          content: string;
+          isSymlink: boolean;
+          isDeleted: boolean;
+          previousPath: string | null;
+        }
+      > = {};
+
+      for (let [path, content] of Object.entries(fsFiles)) {
+        if (files[path] === content) continue;
+
+        updatedFiles[path] = {
+          content,
+          isSymlink: false,
+          isDeleted: false,
+          previousPath: null,
+        };
+      }
+
+      for (let path of Object.keys(files)) {
+        if (fsFiles[path]) continue;
+
+        updatedFiles[path] = {
+          content: "",
+          isSymlink: false,
+          isDeleted: true,
+          previousPath: null,
+        };
+      }
+      console.log("updatedFiles", updatedFiles);
+
+      if (Object.keys(updatedFiles).length === 0) return;
+
+      console.log("committing");
+      commit({
+        message,
+        files: updatedFiles,
+      });
+    }),
   ];
 
   const { messages, sendMessage, isLoading, error, addToolApprovalResponse } =
@@ -129,57 +182,7 @@ function Inner({ bash }: { bash: Bash }) {
       })
     );
 
-  useEffect(() => {
-    if (isLoading) return;
-
-    const fsFiles = Object.fromEntries(
-      Array.from(bash.fs.data.entries())
-        .filter(([key, value]) => key.startsWith("/repository/"))
-        .map(([key, value]) => [
-          key.replace("/repository", ""),
-          new TextDecoder().decode(value.content),
-        ])
-    );
-
-    const updatedFiles: Record<
-      string,
-      {
-        content: string;
-        isSymlink: boolean;
-        isDeleted: boolean;
-        previousPath: string | null;
-      }
-    > = {};
-
-    for (let [path, content] of Object.entries(fsFiles)) {
-      if (files[path] === content) continue;
-
-      updatedFiles[path] = {
-        content,
-        isSymlink: false,
-        isDeleted: false,
-        previousPath: null,
-      };
-    }
-
-    for (let path of Object.keys(files)) {
-      if (fsFiles[path]) continue;
-
-      updatedFiles[path] = {
-        content: "",
-        isSymlink: false,
-        isDeleted: true,
-        previousPath: null,
-      };
-    }
-
-    console.log({ updatedFiles });
-    if (Object.keys(updatedFiles).length === 0) return;
-
-    commit({
-      files: updatedFiles,
-    });
-  }, [isLoading]);
+  console.log(messages);
 
   return (
     <div className="flex h-screen">

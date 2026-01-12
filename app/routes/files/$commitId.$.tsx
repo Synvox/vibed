@@ -1,15 +1,16 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { readFile } from "~/db/plugins/fs";
 import bun from "bun";
+import { badRequest, notFound } from "~/errors";
 
 export async function loader({ params }: LoaderFunctionArgs) {
   const { commitId, "*": path } = params;
 
-  if (!commitId || !path) throw new Error("commitId and path are required");
+  if (!commitId || !path) throw badRequest("commitId and path are required");
 
   const content = await readFile(commitId, path);
 
-  if (!content) throw new Error("File not found");
+  if (!content) throw notFound("File not found");
 
   const type = bun.file(path).type;
 
@@ -50,9 +51,8 @@ export async function loader({ params }: LoaderFunctionArgs) {
           .transform(content)
       : content;
 
-  return new Response(content, {
+  return new Response(transformedContent, {
     headers: {
-      "Content-Length": content.length.toString(),
       "Cache-Control": "public, max-age=31536000, immutable",
       "Content-Type": type,
     },

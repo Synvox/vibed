@@ -45,10 +45,23 @@ const exec = toolDefinition({
   }),
 });
 
+const refresh = toolDefinition({
+  name: "refresh",
+  description:
+    "Save changes and refresh page. Give a message for your most recent change.",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+  }),
+});
+
 export const toolDefs = {
   readFile,
   writeFile,
   exec,
+  refresh,
 };
 
 export async function action(ctx: ActionFunctionArgs) {
@@ -76,6 +89,8 @@ export async function action(ctx: ActionFunctionArgs) {
         the write_file tool to write files, and the exec tool to execute bash commands.
 
         For styling, please use tailwind. Don't worry about setting up tailwind.
+
+        After making file changes, remember to refresh the page. It is imperative that you call refresh after making a change.
       `,
       dedent`
         Here are the files in the /repository directory:
